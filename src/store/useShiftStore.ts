@@ -57,7 +57,9 @@ function loadPreferences(): ShiftPreferences {
 const clampInterval = (n: number): number =>
   Math.min(REFRESH_INTERVAL_MAX, Math.max(REFRESH_INTERVAL_MIN, Math.round(n)));
 
-const clampMin = (n: number): number => Math.min(1440, Math.max(0, Math.round(n)));
+// Wrap to a single day so stepping past midnight loops to 12:00 AM (overnight
+// windows are then expressed as end <= start and handled by the matcher).
+const clampMin = (n: number): number => ((Math.round(n) % 1440) + 1440) % 1440;
 
 interface ShiftState {
   preferences: ShiftPreferences;

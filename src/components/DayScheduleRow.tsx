@@ -38,10 +38,13 @@ const Stepper: React.FC<{
 );
 
 export const DayScheduleRow: React.FC<Props> = ({day, window, onChange}) => {
+  // Wrap past midnight so an end time of 1:00 AM / 2:00 AM (overnight) is reachable.
   const stepStart = (delta: number) =>
-    onChange({startMin: clamp(window.startMin + delta)});
+    onChange({startMin: wrap(window.startMin + delta)});
   const stepEnd = (delta: number) =>
-    onChange({endMin: clamp(window.endMin + delta)});
+    onChange({endMin: wrap(window.endMin + delta)});
+
+  const overnight = !window.allDay && window.endMin <= window.startMin;
 
   return (
     <View style={[styles.card, !window.enabled && styles.cardOff]}>
@@ -54,7 +57,7 @@ export const DayScheduleRow: React.FC<Props> = ({day, window, onChange}) => {
                 ? 'All day'
                 : `${minutesToLabel(window.startMin)} – ${minutesToLabel(
                     window.endMin,
-                  )}`}
+                  )}${overnight ? ' (next day)' : ''}`}
             </Text>
           )}
           <Switch
@@ -90,7 +93,7 @@ export const DayScheduleRow: React.FC<Props> = ({day, window, onChange}) => {
   );
 };
 
-const clamp = (n: number) => Math.min(1440, Math.max(0, n));
+const wrap = (n: number) => ((n % 1440) + 1440) % 1440;
 
 const styles = StyleSheet.create({
   card: {

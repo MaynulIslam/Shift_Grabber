@@ -75,8 +75,8 @@ export type WeekSchedule = {[K in Weekday]: DayWindow};
 export const DEFAULT_DAY_WINDOW: DayWindow = {
   enabled: true,
   allDay: true,
-  startMin: 0,
-  endMin: 1440,
+  startMin: 540, // 9:00 AM — the window you'd see if you turn "All day" off
+  endMin: 1020, // 5:00 PM
 };
 
 export const makeDefaultSchedule = (): WeekSchedule =>

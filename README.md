@@ -152,4 +152,29 @@ Metro before the Android build exists.
 - Feature 2 (app-selector dashboard) is done: the Home screen shows overall
   monitoring status, a session grab count, an accessibility gate, a quick
   start/stop, and live per-app status. Other apps remain disabled placeholders.
-```
+
+---
+
+## Roadmap
+
+Current state: the Skip shift grabber works end-to-end on a real device
+(detect → tap → ADD RUN → grabbed), with a per-day time-window scheduler,
+race/error recovery, auto-open, and a custom icon.
+
+Planned, roughly in order:
+
+1. **Harden the grabber** — battery/process survival for unattended sessions,
+   verify per-day filtering on live runs, event-driven speed (optional).
+2. **Feature #2 — auto-accept orders** — same accessibility pattern pointed at
+   the incoming-order popup: read pay/distance, check the driver's rules, tap
+   Accept. Positioned as hands-free convenience (not a safety claim).
+3. **Standalone release build** — bundle the JS so the app runs untethered
+   (no laptop/Metro) for real-world use.
+4. **Paid version (only once the above is solid)** — to let other drivers use it:
+   - **Auth:** Supabase (email/password first, Google sign-in later)
+   - **Backend:** Supabase Postgres — one row per user `{ trial_started_at, status }`
+   - **Payments:** Stripe (sideloaded app → no Google Play Billing)
+   - **Gate:** on launch, check trial/paid status → unlock or show paywall
+   - Model: free trial (1–2 weeks) → ~$19.99 CAD
+   - Note: distributing a tool that automates another app's UI carries real
+     ToS/account-ban/legal risk — a deliberate, eyes-open decision.
