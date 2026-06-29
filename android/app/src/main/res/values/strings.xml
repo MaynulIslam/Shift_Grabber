@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">SmartCourier</string>
+    <string name="accessibility_service_description">
+        Lets SmartCourier read the Open Shifts page in Skip The Dishes and tap
+        the claim button for shifts that match your preferences. Only used while
+        you have monitoring turned on.
+    </string>
+</resources>
