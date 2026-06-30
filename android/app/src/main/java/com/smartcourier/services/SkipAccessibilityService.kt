@@ -208,8 +208,11 @@ class SkipAccessibilityService : AccessibilityService() {
                 ShiftGrabber.log("warning", "Tap failed for ${shift.id}")
             }
         }
-        // Nothing actioned this cycle — refresh to pull new runs next tick.
-        maybeRefresh()
+        // Nothing grabbed this cycle. We do NOT refresh here: when run cards are
+        // visible we can't be 100% sure it's the Open Runs tab (My Runs shows
+        // identical cards), so the swipe-refresh now happens ONLY from the
+        // confirmed "No Open Runs" empty state above — which is unique to the
+        // Open Runs tab. New runs still get picked up every scan.
         return false
     }
 
