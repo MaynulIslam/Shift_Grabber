@@ -6,11 +6,13 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  Linking,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 
 import {useAuthStore} from '@/store/useAuthStore';
 import {useEntitlementStore} from '@/store/useEntitlementStore';
+import {STRIPE_PAYMENT_LINK} from '@/constants/billing';
 import {colors, spacing} from '@/theme';
 
 const FEATURES = [
@@ -22,6 +24,7 @@ const FEATURES = [
 
 export const PaywallScreen: React.FC = () => {
   const signOut = useAuthStore(s => s.signOut);
+  const userId = useAuthStore(s => s.session?.user?.id);
   const refresh = useEntitlementStore(s => s.refresh);
   const status = useEntitlementStore(s => s.status);
   const [checking, setChecking] = useState(false);
@@ -30,6 +33,15 @@ export const PaywallScreen: React.FC = () => {
     setChecking(true);
     await refresh();
     setChecking(false);
+  };
+
+  const onSubscribe = () => {
+    // Open the hosted Stripe checkout, tagged with this account's id so the
+    // webhook knows who paid. After paying, the user returns and taps refresh.
+    const url = `${STRIPE_PAYMENT_LINK}?client_reference_id=${userId ?? ''}`;
+    Linking.openURL(url).catch(() =>
+      Alert.alert('Could not open checkout', 'Please try again.'),
+    );
   };
 
   return (
@@ -57,14 +69,7 @@ export const PaywallScreen: React.FC = () => {
           <Text style={styles.per}> / month CAD</Text>
         </View>
 
-        <TouchableOpacity
-          style={styles.cta}
-          onPress={() =>
-            Alert.alert(
-              'Coming soon',
-              'Payments will be enabled shortly. Hang tight!',
-            )
-          }>
+        <TouchableOpacity style={styles.cta} onPress={onSubscribe}>
           <Text style={styles.ctaText}>Subscribe</Text>
         </TouchableOpacity>
 
