@@ -10,6 +10,7 @@ import {SkipScreen} from '@/screens/SkipScreen';
 import {ShiftGrabberScreen} from '@/screens/ShiftGrabberScreen';
 import {LogScreen} from '@/screens/LogScreen';
 import {SettingsScreen} from '@/screens/SettingsScreen';
+import {PlanBadge} from '@/components/PlanBadge';
 import {colors} from '@/theme';
 
 const Stack = createNativeStackNavigator<HomeStackParamList>();
@@ -31,7 +32,8 @@ const screenOptions = {
   headerStyle: {backgroundColor: colors.surface},
   headerTintColor: colors.text,
   contentStyle: {backgroundColor: colors.bg},
-} as const;
+  headerRight: () => <PlanBadge />,
+};
 
 function HomeStack() {
   return (

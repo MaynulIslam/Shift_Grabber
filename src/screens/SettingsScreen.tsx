@@ -3,6 +3,7 @@ import {View, Text, Switch, ScrollView, TouchableOpacity, StyleSheet} from 'reac
 
 import {useAppStore} from '@/store/useAppStore';
 import {useAuthStore} from '@/store/useAuthStore';
+import {useEntitlementStore} from '@/store/useEntitlementStore';
 import {BridgeService} from '@/services/BridgeService';
 import {colors, spacing} from '@/theme';
 
@@ -33,6 +34,17 @@ export const SettingsScreen: React.FC = () => {
   const setAccessibilityEnabled = useAppStore(s => s.setAccessibilityEnabled);
   const email = useAuthStore(s => s.session?.user?.email);
   const signOut = useAuthStore(s => s.signOut);
+  const planStatus = useEntitlementStore(s => s.status);
+  const daysLeft = useEntitlementStore(s => s.daysLeft);
+
+  const planLabel =
+    planStatus === 'active'
+      ? 'Subscribed'
+      : planStatus === 'trial'
+      ? `Free trial · ${daysLeft ?? '—'} day${daysLeft === 1 ? '' : 's'} left`
+      : planStatus
+      ? planStatus
+      : '—';
 
   useEffect(() => {
     BridgeService.isAccessibilityEnabled()
@@ -52,6 +64,12 @@ export const SettingsScreen: React.FC = () => {
           <TouchableOpacity style={styles.signOutBtn} onPress={signOut}>
             <Text style={styles.signOutText}>Sign out</Text>
           </TouchableOpacity>
+        </View>
+        <View style={[styles.row, {borderBottomWidth: 0}]}>
+          <View style={{flex: 1}}>
+            <Text style={styles.label}>Plan</Text>
+            <Text style={styles.hint}>{planLabel}</Text>
+          </View>
         </View>
       </View>
 
