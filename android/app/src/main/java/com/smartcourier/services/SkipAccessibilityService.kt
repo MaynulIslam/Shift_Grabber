@@ -428,6 +428,47 @@ class SkipAccessibilityService : AccessibilityService() {
     }
 
     /**
+     * Public on-demand screen capture (e.g. when an order notification fires).
+     * Dumps the current screen to logcat (SKIPDUMP) regardless of DEBUG_DUMP_TREE.
+     */
+    fun captureScreen(reason: String) {
+        ShiftGrabber.log("success", "📸 Captured screen ($reason)")
+        dumpTreeToLog(rootInActiveWindow)
+        dumpTreeToFile(reason)
+    }
+
+    /**
+     * Persist the current screen to a file (files/captures/) so a capture survives
+     * even if logcat rotates during a long shift or the phone is unplugged.
+     */
+    private fun dumpTreeToFile(reason: String) {
+        try {
+            val dir = java.io.File(filesDir, "captures")
+            dir.mkdirs()
+            val sb = StringBuilder()
+            sb.append("=== CAPTURE: $reason @ ${java.util.Date()} ===\n")
+            fun walk(n: AccessibilityNodeInfo?, depth: Int) {
+                if (n == null) return
+                val txt = n.text?.toString().orEmpty()
+                val desc = n.contentDescription?.toString().orEmpty()
+                val id = n.viewIdResourceName.orEmpty()
+                if (txt.isNotBlank() || desc.isNotBlank() || id.isNotBlank() || n.isClickable) {
+                    val cls = n.className?.toString()?.substringAfterLast('.').orEmpty()
+                    val b = android.graphics.Rect().also { n.getBoundsInScreen(it) }
+                    sb.append("  ".repeat(depth))
+                        .append("<$cls> id=[$id] text=\"$txt\" desc=\"$desc\" click=${n.isClickable} bounds=$b\n")
+                }
+                for (i in 0 until n.childCount) walk(n.getChild(i), depth + 1)
+            }
+            walk(rootInActiveWindow, 0)
+            java.io.File(dir, "capture-${System.currentTimeMillis()}.txt")
+                .writeText(sb.toString())
+        } catch (t: Throwable) {
+            ShiftGrabber.log("warning", "Capture-to-file failed: ${t.message}")
+        }
+    }
+
+    /**
      * Log every node with text/desc/id/clickable to logcat (tag SKIPDUMP), with
      * indentation for tree depth. Read back with: adb logcat -s SKIPDUMP
      */

@@ -2,18 +2,18 @@ package com.smartcourier.services
 
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import android.util.Log
 import com.smartcourier.config.SkipSelectors
 import com.smartcourier.core.ShiftGrabber
 
 /**
- * SkipNotificationListenerService — optional accelerant.
+ * Watches notifications from the Skip courier app. This is the cross-app "radar"
+ * for orders — it sees order alerts even when Skip isn't in the foreground.
  *
- * Skip often posts a push notification when new shifts drop. Catching that lets
- * us trigger an immediate scan instead of waiting for the next refresh tick.
- *
- * This is a skeleton: it logs Skip notifications and nudges the accessibility
- * service to run a cycle. Requires the user to grant Notification Access
- * separately (Settings > Notifications > Notification access).
+ * Right now it's in CAPTURE mode: when a Skip notification fires it logs the full
+ * notification content (logcat tag SKIPNOTIF) and dumps the on-screen order page
+ * (tag SKIPDUMP), so we can learn what an incoming order looks like and build
+ * auto-accept. Requires Notification Access (Settings > Notification access).
  */
 class SkipNotificationListenerService : NotificationListenerService() {
 
@@ -22,21 +22,50 @@ class SkipNotificationListenerService : NotificationListenerService() {
         if (pkg != SkipSelectors.PACKAGE) return
 
         val extras = sbn.notification?.extras
-        val title = extras?.getCharSequence("android.title")?.toString().orEmpty()
-        val text = extras?.getCharSequence("android.text")?.toString().orEmpty()
-        ShiftGrabber.log("info", "Skip notification: $title — $text")
+        fun ex(key: String) = extras?.getCharSequence(key)?.toString().orEmpty()
+        val title = ex("android.title")
+        val text = ex("android.text")
+        val bigText = ex("android.bigText")
+        val subText = ex("android.subText")
+        val infoText = ex("android.infoText")
 
-        // TODO: optionally filter for "new shift" wording, then trigger an
-        // immediate scan on the accessibility service:
-        val prefs = ShiftGrabber.preferences
-        val service = ShiftGrabber.accessibilityService
-        if (prefs != null && service != null) {
-            // Run on the main thread; node access must be on the service thread.
-            android.os.Handler(mainLooper).post { service.runCycle(prefs) }
+        // Full dump to logcat for discovery.
+        Log.i(TAG, "===== SKIP NOTIFICATION =====")
+        Log.i(TAG, "title=[$title]")
+        Log.i(TAG, "text=[$text]")
+        Log.i(TAG, "bigText=[$bigText]")
+        Log.i(TAG, "subText=[$subText] infoText=[$infoText]")
+        Log.i(TAG, "category=[${sbn.notification?.category}] channel=[${sbn.notification?.channelId}]")
+
+        // Short line in the in-app Log screen too.
+        ShiftGrabber.log("info", "🔔 Skip notif: ${title.take(28)} — ${text.take(40)}")
+
+        // Persist the full notification to a file (survives logcat rotation).
+        try {
+            val dir = java.io.File(filesDir, "captures")
+            dir.mkdirs()
+            java.io.File(dir, "notif-${System.currentTimeMillis()}.txt").writeText(
+                "title=[$title]\ntext=[$text]\nbigText=[$bigText]\n" +
+                    "subText=[$subText] infoText=[$infoText]\n" +
+                    "category=[${sbn.notification?.category}] channel=[${sbn.notification?.channelId}]\n",
+            )
+        } catch (_: Throwable) {
+        }
+
+        // Capture the on-screen order page a beat later (it needs a moment to render).
+        ShiftGrabber.accessibilityService?.let { service ->
+            android.os.Handler(mainLooper).postDelayed(
+                { service.captureScreen("after Skip notification") },
+                500,
+            )
         }
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         // no-op
+    }
+
+    companion object {
+        private const val TAG = "SKIPNOTIF"
     }
 }
