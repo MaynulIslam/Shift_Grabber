@@ -71,6 +71,10 @@ object SkipSelectors {
             "something went wrong",
         )
         val DISMISS_BUTTON = listOf("OK")
+        // The ✕ / back control at the top of the "Add Run?" detail screen, used
+        // to close it and return to Open Runs after a lost race. CONFIRMED: it's
+        // a clickable node with desc/id "navigation-left-button".
+        val CLOSE_DETAIL = listOf("navigation-left-button", "Close", "Back")
         // CONFIRMED from the empty Open Runs page.
         val EMPTY_STATE = listOf(
             "No Open Runs",

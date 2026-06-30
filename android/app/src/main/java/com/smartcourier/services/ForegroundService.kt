@@ -161,7 +161,7 @@ class ForegroundService : Service() {
                 android.app.PendingIntent.FLAG_UPDATE_CURRENT,
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("SmartCourier")
+            .setContentTitle("Shift Grabber")
             .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_menu_search)
             .setOngoing(true)

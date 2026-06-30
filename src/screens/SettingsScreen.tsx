@@ -2,6 +2,7 @@ import React, {useEffect} from 'react';
 import {View, Text, Switch, ScrollView, TouchableOpacity, StyleSheet} from 'react-native';
 
 import {useAppStore} from '@/store/useAppStore';
+import {useAuthStore} from '@/store/useAuthStore';
 import {BridgeService} from '@/services/BridgeService';
 import {colors, spacing} from '@/theme';
 
@@ -30,6 +31,8 @@ export const SettingsScreen: React.FC = () => {
   const updateSettings = useAppStore(s => s.updateSettings);
   const accessibilityEnabled = useAppStore(s => s.accessibilityEnabled);
   const setAccessibilityEnabled = useAppStore(s => s.setAccessibilityEnabled);
+  const email = useAuthStore(s => s.session?.user?.email);
+  const signOut = useAuthStore(s => s.signOut);
 
   useEffect(() => {
     BridgeService.isAccessibilityEnabled()
@@ -39,6 +42,19 @@ export const SettingsScreen: React.FC = () => {
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
+      <Text style={styles.groupTitle}>Account</Text>
+      <View style={styles.group}>
+        <View style={styles.row}>
+          <View style={{flex: 1}}>
+            <Text style={styles.label}>Signed in</Text>
+            <Text style={styles.hint}>{email ?? '—'}</Text>
+          </View>
+          <TouchableOpacity style={styles.signOutBtn} onPress={signOut}>
+            <Text style={styles.signOutText}>Sign out</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
       <Text style={styles.groupTitle}>Automation</Text>
       <View style={styles.group}>
         <Row
@@ -79,7 +95,7 @@ export const SettingsScreen: React.FC = () => {
       </View>
 
       <Text style={styles.disclaimer}>
-        SmartCourier automates another app's UI on your behalf. This may violate
+        Shift Grabber automates another app's UI on your behalf. This may violate
         that app's terms of service and could put your driver account at risk.
         Use at your own discretion.
       </Text>
@@ -122,6 +138,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   linkBtnText: {color: '#06121A', fontWeight: '700'},
+  signOutBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.danger,
+  },
+  signOutText: {color: colors.danger, fontWeight: '700'},
   disclaimer: {
     color: colors.textMuted,
     fontSize: 11,

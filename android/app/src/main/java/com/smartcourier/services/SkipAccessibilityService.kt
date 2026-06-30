@@ -24,6 +24,9 @@ class SkipAccessibilityService : AccessibilityService() {
 
     private val claimedIds = mutableSetOf<String>()
 
+    /** True after a lost race, while we close the leftover "Add Run?" page. */
+    @Volatile private var closingDetail = false
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         ShiftGrabber.accessibilityService = this
@@ -76,19 +79,41 @@ class SkipAccessibilityService : AccessibilityService() {
             dumpTreeToLog(root)
         }
 
-        // RECOVERY: if Skip is showing an error popup (e.g. "This run is already
-        // taken." after we lost the race), dismiss it — tap OK, else press Back
-        // — so we don't get stuck on it and can resume scanning Open Runs.
+        // RECOVERY step 1 (lost the race): Skip shows an Error popup ("This run
+        // is already taken."). Tap OK to dismiss it, then flag that the "Add
+        // Run?" page underneath still needs closing — otherwise we'd just re-tap
+        // ADD RUN and loop forever on the same taken run.
         if (AccessibilityUtils.findByAnyText(root, SkipSelectors.Texts.ERROR_TEXTS) != null) {
             val ok = AccessibilityUtils.findClickableByAnyText(
                 root, SkipSelectors.Texts.DISMISS_BUTTON,
             )
-            val dismissed = ok != null && AccessibilityUtils.clickSelfOrAncestor(ok)
-            if (!dismissed) {
+            if (ok == null || !AccessibilityUtils.clickSelfOrAncestor(ok)) {
                 performGlobalAction(GLOBAL_ACTION_BACK)
             }
-            ShiftGrabber.log("warning", "Lost it — dismissed error, back to Open Runs")
+            closingDetail = true
+            ShiftGrabber.log("warning", "Lost it — dismissed error")
             return false
+        }
+
+        // RECOVERY step 2: after the loss, the "Add Run?" page is still open.
+        // Close it (the ✕ / back button at the top) to return to Open Runs,
+        // rather than re-tapping ADD RUN. Clear the flag once we're back on the
+        // list. The taken run is already in claimedIds, so we won't re-open it.
+        if (closingDetail) {
+            val onDetail = AccessibilityUtils.findClickableByAnyText(
+                root, SkipSelectors.Texts.CONFIRM_BUTTON,
+            ) != null
+            if (onDetail) {
+                val close = AccessibilityUtils.findClickableByAnyText(
+                    root, SkipSelectors.Texts.CLOSE_DETAIL,
+                )
+                if (close == null || !AccessibilityUtils.clickSelfOrAncestor(close)) {
+                    performGlobalAction(GLOBAL_ACTION_BACK)
+                }
+                ShiftGrabber.log("info", "Closed the taken-run page → Open Runs")
+                return false
+            }
+            closingDetail = false // back on the list — resume scanning
         }
 
         // If a run's "Add Run?" confirm screen is up, finish the grab by tapping
@@ -144,11 +169,18 @@ class SkipAccessibilityService : AccessibilityService() {
         }
 
         if (shifts.isEmpty()) {
-            ShiftGrabber.log(
-                "info",
-                if (emptyHere) "Page loaded, no shifts available" else "No shift cards found this scan",
-            )
-            maybeRefresh()
+            if (emptyHere) {
+                // Confirmed on the Open Runs page, empty — refresh to pull new runs.
+                ShiftGrabber.log("info", "Page loaded, no shifts available")
+                maybeRefresh()
+            } else {
+                // We saw neither run cards NOR the "No Open Runs" empty-state, so
+                // we're NOT on a settled Open Runs page (Skip Home, an "Add Run?"
+                // detail screen, or mid-load). Do NOT swipe here — that's what
+                // was refreshing/scrolling the wrong screens. Just wait; the next
+                // cycle's navigation lands us on Open Runs.
+                ShiftGrabber.log("info", "Not on Open Runs — skipping refresh")
+            }
             return false
         }
 
@@ -162,10 +194,11 @@ class SkipAccessibilityService : AccessibilityService() {
                 ShiftGrabber.log("info", "Auto-grab off — notify only")
                 continue
             }
-            // Tap the run card to open its "Add Run?" detail screen. The next
-            // cycle detects that screen's ADD RUN button and taps it to complete
-            // the grab.
+            // Tap the run card to open its "Add Run?" detail screen. Mark it
+            // tried so we don't re-open the same run (whether we win or lose the
+            // race). The next cycle taps that screen's ADD RUN button.
             if (claim(card)) {
+                claimedIds.add(shift.id)
                 ShiftGrabber.log(
                     "action",
                     "Opened run: ${shift.rawText.take(48)} — confirming…",

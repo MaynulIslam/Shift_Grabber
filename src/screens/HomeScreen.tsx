@@ -118,7 +118,7 @@ export const HomeScreen: React.FC<Props> = ({navigation}) => {
             onPress={() => BridgeService.openOverlaySettings()}>
             <Text style={styles.infoTitle}>↗ Enable auto-open (optional)</Text>
             <Text style={styles.infoText}>
-              Grant "Display over other apps" so SmartCourier can open Skip and go
+              Grant "Display over other apps" so Shift Grabber can open Skip and go
               to Open Runs for you. Without it, keep Skip open yourself.
             </Text>
           </TouchableOpacity>

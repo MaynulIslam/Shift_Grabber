@@ -42,7 +42,7 @@ export function useMonitoringControls(): MonitoringControls {
     if (!enabled) {
       Alert.alert(
         'Accessibility required',
-        'SmartCourier needs the Accessibility permission to read and tap the ' +
+        'Shift Grabber needs the Accessibility permission to read and tap the ' +
           'Skip app. Open settings to enable it?',
         [
           {text: 'Cancel', style: 'cancel'},

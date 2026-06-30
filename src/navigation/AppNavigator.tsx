@@ -39,7 +39,7 @@ function HomeStack() {
       <Stack.Screen
         name="Home"
         component={HomeScreen}
-        options={{title: 'SmartCourier'}}
+        options={{title: 'Shift Grabber'}}
       />
       <Stack.Screen
         name="Skip"

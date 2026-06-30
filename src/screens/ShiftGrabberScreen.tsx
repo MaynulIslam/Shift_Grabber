@@ -79,7 +79,7 @@ export const ShiftGrabberScreen: React.FC = () => {
           onPress={() => BridgeService.openAccessibilitySettings()}>
           <Text style={styles.warnTitle}>⚠️ Accessibility not enabled</Text>
           <Text style={styles.warnText}>
-            Tap to open settings and enable SmartCourier. Required to read and
+            Tap to open settings and enable Shift Grabber. Required to read and
             tap shift cards.
           </Text>
         </TouchableOpacity>
