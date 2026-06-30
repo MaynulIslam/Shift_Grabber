@@ -27,6 +27,9 @@ class SkipAccessibilityService : AccessibilityService() {
     /** True after a lost race, while we close the leftover "Add Run?" page. */
     @Volatile private var closingDetail = false
 
+    /** Last time we verified/re-centered our position on Open Runs. */
+    @Volatile private var lastPositionMs = 0L
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         ShiftGrabber.accessibilityService = this
@@ -148,6 +151,40 @@ class SkipAccessibilityService : AccessibilityService() {
             }
         }
 
+        // POSITION GATE — Part A (every cycle, reliable): we ONLY operate inside
+        // the Scheduling section. The bottom nav exposes which tab is selected,
+        // so if "Scheduling" isn't selected (we're on Home / Earnings / Profile),
+        // tap it (coordinate tap — the bottom nav ignores ACTION_CLICK) and do
+        // nothing else. Skipped when the bottom nav isn't present (e.g. the
+        // "Add Run?" detail screen).
+        val schedNav = bottomNavNode(root, "Scheduling")
+        if (schedNav != null && !schedNav.isSelected) {
+            tapByCoordinates(schedNav)
+            ShiftGrabber.log("info", "Off Scheduling — returning to Scheduling")
+            return false
+        }
+
+        // Part B: within Scheduling, keep the Open Runs TOP tab selected. Those
+        // tabs DON'T expose a selected state, so every ~5s we re-tap Open Runs to
+        // stay centered (vs My Runs / Availability). Skipped on the "Add Run?"
+        // screen and when "No Open Runs" already confirms we're on Open Runs.
+        val onAddRunScreen = AccessibilityUtils.findClickableByAnyText(
+            root, SkipSelectors.Texts.CONFIRM_BUTTON,
+        ) != null
+        val confirmedOnOpenRuns =
+            AccessibilityUtils.findByAnyText(root, SkipSelectors.Texts.EMPTY_STATE) != null
+        if (schedNav != null && !onAddRunScreen && !confirmedOnOpenRuns &&
+            System.currentTimeMillis() - lastPositionMs >= POSITION_CHECK_MS
+        ) {
+            lastPositionMs = System.currentTimeMillis()
+            val openRunsTab =
+                AccessibilityUtils.findByAnyText(root, SkipSelectors.Texts.OPEN_SHIFTS_TAB)
+            if (openRunsTab != null && AccessibilityUtils.clickSelfOrAncestor(openRunsTab)) {
+                ShiftGrabber.log("info", "Re-centered on Open Runs")
+                return false
+            }
+        }
+
         // Only navigate to the Open Runs tab if we DON'T already see the list.
         // Re-tapping the tab every cycle forces a full reload — disruptive, a
         // likely cause of Skip's network errors, and it can reload a run out
@@ -250,13 +287,53 @@ class SkipAccessibilityService : AccessibilityService() {
             return
         }
 
-        // Open Runs not visible — try to reach the Scheduling section first.
-        val scheduling = AccessibilityUtils.findByAnyText(root, SkipSelectors.Texts.SCHEDULING_NAV)
-        if (scheduling != null) {
-            if (AccessibilityUtils.clickSelfOrAncestor(scheduling)) {
-                ShiftGrabber.log("info", "Opened Scheduling (heading to Open Runs)")
-            }
+        // Open Runs not visible — reach the Scheduling section first. The bottom
+        // nav ignores ACTION_CLICK, so tap its coordinates.
+        val scheduling = AccessibilityUtils.findClickableByAnyText(
+            root, SkipSelectors.Texts.SCHEDULING_NAV,
+        )
+        if (scheduling != null && tapByCoordinates(scheduling)) {
+            ShiftGrabber.log("info", "Opened Scheduling (heading to Open Runs)")
         }
+    }
+
+    /**
+     * Find a bottom-nav item by its EXACT content-description ("Home",
+     * "Scheduling", "Earnings", "Profile"). Exact match avoids decoys like the
+     * "How Scheduling Works" link. The returned node's isSelected tells us which
+     * bottom tab is active.
+     */
+    private fun bottomNavNode(root: AccessibilityNodeInfo?, desc: String): AccessibilityNodeInfo? {
+        if (root == null) return null
+        var result: AccessibilityNodeInfo? = null
+        fun walk(n: AccessibilityNodeInfo?) {
+            if (n == null || result != null) return
+            if (n.isClickable && n.contentDescription?.toString() == desc) {
+                result = n
+                return
+            }
+            for (i in 0 until n.childCount) walk(n.getChild(i))
+        }
+        walk(root)
+        return result
+    }
+
+    /**
+     * Tap a node by dispatching a real touch at its center. Use this for
+     * controls that ignore AccessibilityNodeInfo.ACTION_CLICK — notably Skip's
+     * bottom navigation (Home / Scheduling / Earnings / Profile).
+     */
+    private fun tapByCoordinates(node: AccessibilityNodeInfo): Boolean {
+        val r = android.graphics.Rect().also { node.getBoundsInScreen(it) }
+        if (r.width() <= 0 || r.height() <= 0) return false
+        val path = Path().apply {
+            moveTo(r.exactCenterX(), r.exactCenterY())
+            lineTo(r.exactCenterX() + 1f, r.exactCenterY() + 1f)
+        }
+        val stroke = GestureDescription.StrokeDescription(path, 0, 50)
+        return dispatchGesture(
+            GestureDescription.Builder().addStroke(stroke).build(), null, null,
+        )
     }
 
     /**
@@ -382,6 +459,8 @@ class SkipAccessibilityService : AccessibilityService() {
         private const val TAG_DUMP = "SKIPDUMP"
         // A clock time like "5:00 AM" — the signature of a run card's desc.
         private val RUN_TIME_PATTERN = Regex("\\d{1,2}:\\d{2}\\s?(AM|PM)", RegexOption.IGNORE_CASE)
+        // How often to verify we're still parked on Open Runs.
+        private const val POSITION_CHECK_MS = 5_000L
         // Day-header text (lowercased) -> our weekday abbreviation.
         private val DAY_NAME_TO_ABBREV = linkedMapOf(
             "monday" to "Mon", "tuesday" to "Tue", "wednesday" to "Wed",
