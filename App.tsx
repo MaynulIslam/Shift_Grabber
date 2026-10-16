@@ -18,6 +18,12 @@ import {useEntitlementStore} from '@/store/useEntitlementStore';
 import {NotificationService} from '@/services/NotificationService';
 import {colors} from '@/theme';
 
+// TEMP dev bypass. The Supabase backend (login/trial/paywall) is offline, so in
+// dev builds we skip the auth + paywall gates to keep building features that don't
+// need the backend (the Uride/Sling grabber). Flip to false once Supabase is
+// restored. MUST never be true in a release build.
+const DEV_BYPASS_AUTH = __DEV__ && true;
+
 const Splash: React.FC = () => (
   <View
     style={{
@@ -58,6 +64,9 @@ const App: React.FC = () => {
   }, [session, refreshEntitlement, resetEntitlement]);
 
   const renderBody = () => {
+    if (DEV_BYPASS_AUTH) {
+      return <AppNavigator />;
+    }
     if (initializing) {
       return <Splash />;
     }

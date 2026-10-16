@@ -120,6 +120,39 @@ export const REFRESH_INTERVAL_MIN = 1;
 export const REFRESH_INTERVAL_MAX = 30;
 
 // ---------------------------------------------------------------------------
+// Uride / Sling shift grabber rules
+// ---------------------------------------------------------------------------
+
+/** Buffer choices offered in the UI (minutes of edge flexibility). */
+export const BUFFER_OPTIONS_MIN = [0, 60, 120] as const;
+
+/**
+ * Rules for the Uride/Sling grabber. Reuses the same per-day WeekSchedule as the
+ * Skip grabber, plus a buffer and the two triggers (manual + Thursday auto-wake).
+ */
+export interface SlingRules {
+  /** Per-day windows the driver wants to cover. */
+  schedule: WeekSchedule;
+  /** Edge flexibility: a shift may start up to this early / end this late. Minutes. */
+  bufferMin: number;
+  /** Apply automatically to matches (vs just listing them for review). */
+  autoApply: boolean;
+  /** Wake ~Thursday noon to scan when Uride drops next week's shifts. */
+  autoWakeThursday: boolean;
+}
+
+export const DEFAULT_SLING_RULES: SlingRules = {
+  schedule: makeDefaultSchedule(),
+  bufferMin: 60,
+  autoApply: true,
+  autoWakeThursday: true,
+};
+
+/** "1h" / "2h" / "None" label for a buffer in minutes. */
+export const bufferLabel = (min: number): string =>
+  min === 0 ? 'None' : min % 60 === 0 ? `${min / 60}h` : `${min}m`;
+
+// ---------------------------------------------------------------------------
 // Shifts
 // ---------------------------------------------------------------------------
 

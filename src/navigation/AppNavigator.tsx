@@ -7,6 +7,7 @@ import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {HomeStackParamList, RootTabParamList} from './types';
 import {HomeScreen} from '@/screens/HomeScreen';
 import {SkipScreen} from '@/screens/SkipScreen';
+import {SlingScreen} from '@/screens/SlingScreen';
 import {ShiftGrabberScreen} from '@/screens/ShiftGrabberScreen';
 import {LogScreen} from '@/screens/LogScreen';
 import {SettingsScreen} from '@/screens/SettingsScreen';
@@ -52,6 +53,11 @@ function HomeStack() {
         name="ShiftGrabber"
         component={ShiftGrabberScreen}
         options={{title: 'Shift Grabber'}}
+      />
+      <Stack.Screen
+        name="Sling"
+        component={SlingScreen}
+        options={{title: 'Uride Shifts'}}
       />
     </Stack.Navigator>
   );

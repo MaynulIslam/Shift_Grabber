@@ -14,4 +14,5 @@ export const StorageKeys = {
   LOGS: 'logs.entries',
   SELECTED_APP: 'app.selected',
   GLOBAL_SETTINGS: 'app.settings',
+  SLING_RULES: 'sling.rules',
 } as const;

@@ -5,6 +5,7 @@ export type HomeStackParamList = {
   Home: undefined;
   Skip: undefined;
   ShiftGrabber: undefined;
+  Sling: undefined;
 };
 
 /** Bottom tab navigator. */

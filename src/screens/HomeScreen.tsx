@@ -136,6 +136,24 @@ export const HomeScreen: React.FC<Props> = ({navigation}) => {
           />
         ))}
 
+        {/* Shift scheduling (Uride via Sling) */}
+        <Text style={[styles.sectionTitle, {marginTop: spacing(2)}]}>
+          Shift scheduling
+        </Text>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('Sling')}
+          style={styles.urideCard}>
+          <View style={[styles.urideAccent, {backgroundColor: '#0A84FF'}]} />
+          <View style={{flex: 1}}>
+            <Text style={styles.urideName}>Uride Shifts</Text>
+            <Text style={styles.uridePkg}>
+              Auto-apply on Sling · set days &amp; times
+            </Text>
+          </View>
+          <Text style={styles.urideTag}>Open →</Text>
+        </TouchableOpacity>
+
         <View style={styles.note}>
           <Text style={styles.noteText}>
             Only Skip The Dishes is wired up right now. Uber Eats and DoorDash
@@ -226,4 +244,19 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   noteText: {color: colors.textMuted, fontSize: 12, lineHeight: 18},
+
+  urideCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing(2),
+    marginBottom: spacing(1.5),
+  },
+  urideAccent: {width: 6, height: 44, borderRadius: 3, marginRight: spacing(1.5)},
+  urideName: {color: colors.text, fontSize: 16, fontWeight: '700'},
+  uridePkg: {color: colors.textMuted, fontSize: 12, marginTop: 2},
+  urideTag: {fontSize: 13, fontWeight: '700', color: colors.primary},
 });
