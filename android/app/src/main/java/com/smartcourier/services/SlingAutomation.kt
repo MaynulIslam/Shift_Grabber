@@ -30,14 +30,20 @@ object SlingAutomation {
 
     fun resetSession() = handled.clear()
 
-    /** One full multi-week sweep. */
+    /** One full multi-week sweep, anchored at today's week. */
     fun runSweep(service: AccessibilityService, rules: SlingRules) {
         ensureOnAvailable(service)
+        val today = jumpToToday(service) // anchor deterministically at today's week
+        ensureOnAvailable(service)
+        log("info", "Auditing from today (${today ?: "?"}) for the next 2 weeks")
+
         var grandOpen = 0
         var grandMatch = 0
 
         for (week in 0 until MAX_WEEKS) {
-            val (open, match) = sweepWeek(service, rules)
+            // In today's week, skip days already in the past.
+            val minDate = if (week == 0) today else null
+            val (open, match) = sweepWeek(service, rules, minDate)
             grandOpen += open
             grandMatch += match
             log("info", "Week ${week + 1}: $open open, $match match your rules")
@@ -61,7 +67,11 @@ object SlingAutomation {
     }
 
     /** Scroll through one week, scanning + handling each unique open card. */
-    private fun sweepWeek(service: AccessibilityService, rules: SlingRules): Pair<Int, Int> {
+    private fun sweepWeek(
+        service: AccessibilityService,
+        rules: SlingRules,
+        minDate: Int?,
+    ): Pair<Int, Int> {
         val seen = mutableSetOf<String>()
         var open = 0
         var match = 0
@@ -78,6 +88,16 @@ object SlingAutomation {
             for ((node, shift) in shifts) {
                 val key = shiftKey(shift)
                 if (seen.contains(key)) continue
+
+                // Skip days already past (today's week only). Count toward
+                // progress so scrolling continues, but not as an open shift.
+                val dn = shift.dateNum?.toIntOrNull()
+                if (minDate != null && dn != null && dn < minDate) {
+                    seen.add(key)
+                    newThisPass++
+                    continue
+                }
+
                 seen.add(key)
                 newThisPass++
                 open++
@@ -126,6 +146,39 @@ object SlingAutomation {
         }
         val root2 = service.rootInActiveWindow ?: return
         findAny(root2, SlingSelectors.AVAILABLE_TAB)?.let { click(service, it); sleep(800) }
+    }
+
+    /**
+     * Tap the top-bar date button (shows today's day-of-month) to jump to the
+     * week containing today. Returns today's date number if found.
+     */
+    private fun jumpToToday(service: AccessibilityService): Int? {
+        val dm = service.resources.displayMetrics
+        val root = service.rootInActiveWindow ?: return null
+        var found: AccessibilityNodeInfo? = null
+        fun walk(n: AccessibilityNodeInfo?) {
+            if (n == null || found != null) return
+            val label = n.text?.toString() ?: n.contentDescription?.toString() ?: ""
+            if (label.matches(Regex("\\d{1,2}"))) {
+                val r = Rect()
+                n.getBoundsInScreen(r)
+                // Top bar, right side = the calendar/today button (not the week strip).
+                if (r.top in 1..420 && r.left > dm.widthPixels * 0.6f) {
+                    found = n
+                    return
+                }
+            }
+            for (i in 0 until n.childCount) walk(n.getChild(i))
+        }
+        walk(root)
+        val node = found ?: run {
+            log("warning", "Couldn't find the 'today' button — sweeping from current week")
+            return null
+        }
+        val num = (node.text?.toString() ?: node.contentDescription?.toString() ?: "").toIntOrNull()
+        click(service, node)
+        sleep(1200)
+        return num
     }
 
     /** Tap the ▶ arrow at the right end of the week date-strip. */
