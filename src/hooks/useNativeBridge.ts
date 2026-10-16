@@ -13,16 +13,25 @@ import {BridgeService} from '@/services/BridgeService';
 import {LogService} from '@/services/LogService';
 import {NotificationService} from '@/services/NotificationService';
 import {useShiftStore} from '@/store/useShiftStore';
+import {useSlingStore} from '@/store/useSlingStore';
 import {useAppStore} from '@/store/useAppStore';
 
 export function useNativeBridge(): void {
   const setStatus = useShiftStore(s => s.setStatus);
+  const setSlingStatus = useSlingStore(s => s.setStatus);
   const addClaimedShift = useShiftStore(s => s.addClaimedShift);
   const notifyOnClaim = useAppStore(s => s.settings.notifyOnClaim);
 
   useEffect(() => {
     const subs = [
-      BridgeService.onStatusChange(p => setStatus(p.status)),
+      BridgeService.onStatusChange(p => {
+        // Native tags Sling events app="uride" so the right screen updates.
+        if ((p.app as string) === 'uride') {
+          setSlingStatus(p.status);
+        } else {
+          setStatus(p.status);
+        }
+      }),
 
       BridgeService.onLog(p =>
         LogService.ingest({
@@ -46,7 +55,7 @@ export function useNativeBridge(): void {
     return () => {
       subs.forEach(s => s?.remove());
     };
-  }, [setStatus, addClaimedShift, notifyOnClaim]);
+  }, [setStatus, setSlingStatus, addClaimedShift, notifyOnClaim]);
 
   // Keep the accessibility-enabled flag fresh on mount.
   const setAccessibilityEnabled = useAppStore(s => s.setAccessibilityEnabled);

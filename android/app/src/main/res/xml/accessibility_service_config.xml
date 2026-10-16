@@ -14,6 +14,6 @@
     android:canPerformGestures="true"
     android:canRetrieveWindowContent="true"
     android:notificationTimeout="100"
-    android:packageNames="com.delco.courier"
+    android:packageNames="com.delco.courier,com.gangverk.sling"
     android:description="@string/accessibility_service_description"
     android:settingsActivity="com.smartcourier.MainActivity" />

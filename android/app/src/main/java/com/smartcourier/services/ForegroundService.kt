@@ -11,6 +11,7 @@ import android.os.IBinder
 import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import com.smartcourier.config.SkipSelectors
+import com.smartcourier.config.SlingSelectors
 import com.smartcourier.core.ShiftGrabber
 import com.smartcourier.model.ServiceStatus
 import kotlinx.coroutines.CoroutineScope
@@ -57,8 +58,11 @@ class ForegroundService : Service() {
             ShiftGrabber.log("info", "Monitoring loop started")
 
             while (isActive) {
-                val prefs = ShiftGrabber.preferences
-                if (prefs == null) {
+                val ready = when (ShiftGrabber.target) {
+                    ShiftGrabber.Target.SKIP -> ShiftGrabber.preferences != null
+                    ShiftGrabber.Target.SLING -> ShiftGrabber.slingRules != null
+                }
+                if (!ready) {
                     ShiftGrabber.log("error", "No preferences set; stopping")
                     break
                 }
@@ -85,6 +89,12 @@ class ForegroundService : Service() {
             ShiftGrabber.log("warning", "Accessibility service not connected")
             return
         }
+
+        if (ShiftGrabber.target == ShiftGrabber.Target.SLING) {
+            runSlingTick(service)
+            return
+        }
+
         val prefs = ShiftGrabber.preferences ?: return
 
         // If Skip isn't the foreground app, try to bring it up ourselves. That
@@ -93,9 +103,9 @@ class ForegroundService : Service() {
         val fg = withContext(Dispatchers.Main) { service.currentForegroundPackage() }
         if (fg != SkipSelectors.PACKAGE) {
             if (Settings.canDrawOverlays(this)) {
-                bringSkipToForeground()
+                bringToForeground(SkipSelectors.PACKAGE, "Skip")
             } else {
-                maybeLogWaiting(fg)
+                maybeLogWaiting(fg, "Skip")
             }
             return
         }
@@ -105,30 +115,50 @@ class ForegroundService : Service() {
         withContext(Dispatchers.Main) { service.runCycle(prefs) }
     }
 
+    /**
+     * Uride/Sling tick. Brings Sling forward if needed, then runs one scan+apply
+     * pass OFF the main thread (SlingAutomation sleeps between taps).
+     */
+    private suspend fun runSlingTick(service: SkipAccessibilityService) {
+        val rules = ShiftGrabber.slingRules ?: return
+        val fg = withContext(Dispatchers.Main) { service.currentForegroundPackage() }
+        if (fg != SlingSelectors.PACKAGE) {
+            if (Settings.canDrawOverlays(this)) {
+                bringToForeground(SlingSelectors.PACKAGE, "Sling")
+            } else {
+                maybeLogWaiting(fg, "Sling")
+            }
+            return
+        }
+        // On Sling — run one full multi-week sweep, then stop (one-shot).
+        SlingAutomation.runSweep(service, rules)
+        stopMonitoring()
+    }
+
     /** Throttled log so we don't spam "waiting" every second. */
-    private fun maybeLogWaiting(fg: String?) {
+    private fun maybeLogWaiting(fg: String?, appName: String) {
         val now = System.currentTimeMillis()
         if (now - lastWaitLogMs > 5000) {
             lastWaitLogMs = now
             ShiftGrabber.log(
                 "info",
-                "Waiting for Skip — open it, or grant 'Display over other apps' " +
+                "Waiting for $appName — open it, or grant 'Display over other apps' " +
                     "for auto-open (saw: $fg)",
             )
         }
     }
 
-    /** Launch the Skip courier app so its window becomes the active one. */
-    private fun bringSkipToForeground() {
-        val launch = packageManager.getLaunchIntentForPackage(SkipSelectors.PACKAGE)
+    /** Launch the target app so its window becomes the active one. */
+    private fun bringToForeground(pkg: String, appName: String) {
+        val launch = packageManager.getLaunchIntentForPackage(pkg)
         if (launch == null) {
-            ShiftGrabber.log("error", "Skip app not installed (${SkipSelectors.PACKAGE})")
+            ShiftGrabber.log("error", "$appName app not installed ($pkg)")
             ShiftGrabber.updateStatus(ServiceStatus.ERROR)
             return
         }
         launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
         startActivity(launch)
-        ShiftGrabber.log("info", "Brought Skip to foreground")
+        ShiftGrabber.log("info", "Brought $appName to foreground")
     }
 
     private fun stopMonitoring() {

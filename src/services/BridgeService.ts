@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import {
   ShiftPreferences,
+  SlingRules,
   ServiceStatus,
   NativeEvents,
   StatusChangePayload,
@@ -25,6 +26,10 @@ import {
 interface ShiftGrabberNativeModule {
   startMonitoring(prefsJson: string): Promise<boolean>;
   stopMonitoring(): Promise<boolean>;
+  /** Start the Uride/Sling grabber with the given rules. */
+  startSling(rulesJson: string): Promise<boolean>;
+  /** Arm/cancel the weekly Thursday-noon auto-wake for Sling. */
+  setSlingAutoWake(enabled: boolean, rulesJson: string): void;
   getStatus(): Promise<ServiceStatus>;
   /** Whether SmartCourier's AccessibilityService is currently enabled in system settings. */
   isAccessibilityEnabled(): Promise<boolean>;
@@ -69,6 +74,22 @@ class BridgeServiceImpl {
       return false;
     }
     return LINKED.stopMonitoring();
+  }
+
+  async startSling(rules: SlingRules): Promise<boolean> {
+    if (!LINKED) {
+      warnUnlinked('startSling');
+      return false;
+    }
+    return LINKED.startSling(JSON.stringify(rules));
+  }
+
+  setSlingAutoWake(enabled: boolean, rules: SlingRules): void {
+    if (!LINKED) {
+      warnUnlinked('setSlingAutoWake');
+      return;
+    }
+    LINKED.setSlingAutoWake(enabled, JSON.stringify(rules));
   }
 
   async getStatus(): Promise<ServiceStatus> {

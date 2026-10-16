@@ -14,9 +14,10 @@
          service can bring Skip to the foreground on its own (Android 10+ BAL). -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
-    <!-- Needed to query/launch the Skip courier app on Android 11+ -->
+    <!-- Needed to query/launch the Skip courier + Sling apps on Android 11+ -->
     <queries>
         <package android:name="com.delco.courier" />
+        <package android:name="com.gangverk.sling" />
     </queries>
 
     <application
@@ -72,6 +73,15 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
+
+        <!-- Weekly Thursday-noon wake for the Uride/Sling grabber -->
+        <receiver
+            android:name=".services.SlingWakeReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.smartcourier.SLING_WAKE" />
+            </intent-filter>
+        </receiver>
 
     </application>
 </manifest>

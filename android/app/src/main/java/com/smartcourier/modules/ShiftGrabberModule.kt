@@ -11,8 +11,11 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.smartcourier.core.ShiftGrabber
 import com.smartcourier.model.ShiftPreferences
+import com.smartcourier.model.SlingRules
 import com.smartcourier.services.ForegroundService
 import com.smartcourier.services.SkipAccessibilityService
+import com.smartcourier.services.SlingAutomation
+import com.smartcourier.services.SlingScheduler
 
 /**
  * ShiftGrabberModule — the JS-facing bridge. Method names/contract match
@@ -33,6 +36,7 @@ class ShiftGrabberModule(
     fun startMonitoring(prefsJson: String, promise: Promise) {
         try {
             val prefs = ShiftPreferences.fromJson(prefsJson)
+            ShiftGrabber.setTarget(ShiftGrabber.Target.SKIP)
             ShiftGrabber.setPreferences(prefs)
 
             if (!isAccessibilityServiceEnabled()) {
@@ -43,6 +47,36 @@ class ShiftGrabberModule(
             promise.resolve(true)
         } catch (t: Throwable) {
             promise.reject("START_FAILED", t.message, t)
+        }
+    }
+
+    /** Start the Uride/Sling grabber (reuses the same foreground loop). */
+    @ReactMethod
+    fun startSling(rulesJson: String, promise: Promise) {
+        try {
+            val rules = SlingRules.fromJson(rulesJson)
+            ShiftGrabber.setTarget(ShiftGrabber.Target.SLING)
+            ShiftGrabber.setSlingRules(rules)
+            SlingAutomation.resetSession()
+
+            if (!isAccessibilityServiceEnabled()) {
+                promise.resolve(false)
+                return
+            }
+            ForegroundService.start(reactContext)
+            promise.resolve(true)
+        } catch (t: Throwable) {
+            promise.reject("START_SLING_FAILED", t.message, t)
+        }
+    }
+
+    /** Arm/cancel the weekly Thursday-noon auto-wake for Sling. */
+    @ReactMethod
+    fun setSlingAutoWake(enabled: Boolean, rulesJson: String) {
+        if (enabled) {
+            SlingScheduler.enable(reactContext, rulesJson)
+        } else {
+            SlingScheduler.disable(reactContext)
         }
     }
 

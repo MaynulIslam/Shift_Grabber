@@ -50,7 +50,11 @@ const App: React.FC = () => {
   const resetEntitlement = useEntitlementStore(s => s.reset);
 
   useEffect(() => {
-    initAuth();
+    // Skip the Supabase auth init while bypassing (its backend is offline), so
+    // we don't spam "Network request failed" in dev.
+    if (!DEV_BYPASS_AUTH) {
+      initAuth();
+    }
     NotificationService.requestPermission().catch(() => {});
   }, [initAuth]);
 

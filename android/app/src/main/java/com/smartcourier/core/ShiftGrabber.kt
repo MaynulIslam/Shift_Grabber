@@ -7,6 +7,7 @@ import com.facebook.react.modules.core.DeviceEventManagerModule
 import com.smartcourier.model.ParsedShift
 import com.smartcourier.model.ServiceStatus
 import com.smartcourier.model.ShiftPreferences
+import com.smartcourier.model.SlingRules
 import com.smartcourier.services.SkipAccessibilityService
 
 /**
@@ -25,7 +26,16 @@ import com.smartcourier.services.SkipAccessibilityService
  */
 object ShiftGrabber {
 
+    /** Which grabber the monitoring loop is currently driving. */
+    enum class Target { SKIP, SLING }
+
+    @Volatile var target: Target = Target.SKIP
+        private set
+
     @Volatile var preferences: ShiftPreferences? = null
+        private set
+
+    @Volatile var slingRules: SlingRules? = null
         private set
 
     @Volatile var status: ServiceStatus = ServiceStatus.OFF
@@ -44,13 +54,24 @@ object ShiftGrabber {
         preferences = prefs
     }
 
+    fun setTarget(t: Target) {
+        target = t
+    }
+
+    fun setSlingRules(rules: SlingRules) {
+        slingRules = rules
+    }
+
+    /** JS-side app tag for events, so the right store/screen updates. */
+    private fun appTag(): String = if (target == Target.SLING) "uride" else "skip"
+
     // -- Status ---------------------------------------------------------------
 
     fun updateStatus(next: ServiceStatus) {
         status = next
         val map = Arguments.createMap().apply {
             putString("status", next.name)
-            putString("app", "skip")
+            putString("app", appTag())
         }
         emit(EVENT_STATUS_CHANGE, map)
     }
@@ -61,7 +82,7 @@ object ShiftGrabber {
         val map = Arguments.createMap().apply {
             putString("level", level)
             putString("message", message)
-            putString("app", "skip")
+            putString("app", appTag())
             putDouble("timestamp", System.currentTimeMillis().toDouble())
         }
         emit(EVENT_LOG, map)

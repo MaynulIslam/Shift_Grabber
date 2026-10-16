@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useCallback, useEffect} from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {SafeAreaView} from 'react-native-safe-area-context';
 import {useSlingStore} from '@/store/useSlingStore';
 import {DayScheduleRow} from '@/components/DayScheduleRow';
 import {StatusBadge} from '@/components/StatusBadge';
+import {BridgeService} from '@/services/BridgeService';
 import {WEEKDAYS, BUFFER_OPTIONS_MIN, bufferLabel} from '@/types';
 import {colors, spacing} from '@/theme';
 
@@ -25,19 +26,44 @@ export const SlingScreen: React.FC = () => {
   const setAutoApply = useSlingStore(s => s.setAutoApply);
   const setAutoWakeThursday = useSlingStore(s => s.setAutoWakeThursday);
 
-  const activeDays = WEEKDAYS.filter(d => rules.schedule[d].enabled).length;
+  const isRunning = status === 'RUNNING' || status === 'STARTING';
 
-  const onScanNow = () => {
-    // Phase B wires this to the native Sling automation. For now it confirms the
-    // rules are saved and explains what's coming.
-    Alert.alert(
-      'Rules saved ✓',
-      `You've set ${activeDays} active day${activeDays === 1 ? '' : 's'} with a ` +
-        `${bufferLabel(rules.bufferMin)} buffer. The auto-apply engine (opening ` +
-        `Sling → Available → applying to matches) is the next build step — this ` +
-        `button will then scan and apply for real.`,
-    );
-  };
+  // Arm/cancel the weekly Thursday-noon wake whenever the toggle or rules change.
+  useEffect(() => {
+    BridgeService.setSlingAutoWake(rules.autoWakeThursday, rules);
+  }, [rules]);
+
+  const onScanNow = useCallback(async () => {
+    const enabled = await BridgeService.isAccessibilityEnabled();
+    if (!enabled) {
+      Alert.alert(
+        'Accessibility required',
+        'Shift Grabber needs the Accessibility permission to read and tap the ' +
+          'Sling app. Open settings to enable it?',
+        [
+          {text: 'Cancel', style: 'cancel'},
+          {
+            text: 'Open settings',
+            onPress: () => BridgeService.openAccessibilitySettings(),
+          },
+        ],
+      );
+      return;
+    }
+    const ok = await BridgeService.startSling(rules);
+    if (!ok) {
+      Alert.alert(
+        'Could not start',
+        BridgeService.isAvailable
+          ? 'The native service failed to start. Check the Logs tab.'
+          : 'Native module not linked — build the Android app to run this.',
+      );
+    }
+  }, [rules]);
+
+  const onStop = useCallback(() => {
+    BridgeService.stopMonitoring().catch(() => {});
+  }, []);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -124,9 +150,23 @@ export const SlingScreen: React.FC = () => {
         </View>
 
         {/* Manual trigger */}
-        <TouchableOpacity style={styles.cta} onPress={onScanNow}>
-          <Text style={styles.ctaText}>Scan &amp; apply now</Text>
+        <TouchableOpacity
+          style={[styles.cta, isRunning && styles.ctaStop]}
+          onPress={isRunning ? onStop : onScanNow}>
+          <Text style={styles.ctaText}>
+            {isRunning
+              ? 'Stop'
+              : rules.autoApply
+              ? 'Scan & apply now'
+              : 'Scan now (dry-run)'}
+          </Text>
         </TouchableOpacity>
+        {!rules.autoApply && !isRunning && (
+          <Text style={styles.dryHint}>
+            "Apply automatically" is off — it only lists matches in the Logs tab,
+            it won't apply.
+          </Text>
+        )}
 
         {/* Applied this session */}
         {appliedShifts.length > 0 && (
@@ -212,7 +252,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: spacing(2),
   },
+  ctaStop: {backgroundColor: colors.danger},
   ctaText: {color: '#06121A', fontSize: 16, fontWeight: '800'},
+  dryHint: {
+    color: colors.textMuted,
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: spacing(1),
+    lineHeight: 16,
+  },
   appliedCard: {
     backgroundColor: colors.surface,
     borderWidth: 1,
